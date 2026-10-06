@@ -6,6 +6,12 @@ from rest_framework import status
 from core.auth_utils import get_student_id, get_student_profile
 from documents.models import Document
 from opportunities.models import Opportunity
+from .models import Application
+from django.utils import timezone
+
+import uuid
+
+from django.db import IntegrityError
 from django.utils import timezone
 
 @api_view(["POST"])
@@ -80,4 +86,70 @@ def review_application(request):
             ),
         },
         status=status.HTTP_200_OK,
+    )
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def confirm_application(request):
+    """
+    Confirm and submit an application.
+
+    Unlike the review endpoint, this endpoint creates the application
+    only after the student explicitly confirms submission.
+    """
+
+    opportunity_id = request.data.get("opportunity_id")
+
+    if not opportunity_id:
+        return Response(
+            {"error":"opportunity_id is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    #Never trust a student ID supplied by the frontend.
+    student_id = get_student_id(request.user)
+
+    #Make sure the opportunity is still available at confirmation time
+    try:
+        opportunity = Opportunity.objects.get(
+            opportunity_id=opportunity_id,
+            is_active=True,
+            is_verified=True,
+            closing_date__gte=timezone.now(),
+        )
+    except opportunity_id.DoesNotExist:
+        return Response(
+            {"error": "Opportunity not found or unavailable."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    #Generate a unique reference for the submitted application.
+    reference_number = f"SCOUT-{uuid.uuid4().hex[:12].upper()}"
+
+    try:
+        application = Application.objects.create(
+            student_id=student_id,
+            opportunity_id=opportunity_id,
+            reference_number=reference_number,
+            status="Submitted",
+        )
+    except IntegrityError:
+        return Response(
+            {"error": "You have already applied for this opportunity."},
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    return Response(
+        {
+            "message": "Application submitted successfully.",
+            "application": {
+                "application_id": application.application_id,
+                "reference_number": application.reference_number,
+                "status": application.status,
+                "opportunity_id": application.opportunity_id,
+                "opportunity_title": opportunity.title,
+                "submitted_at": application.submitted_at,
+            },
+        },
+        status=status.HTTP_201_CREATED
     )
