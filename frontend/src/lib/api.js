@@ -12,7 +12,7 @@ const ENDPOINTS = {
   register: "/api/accounts/register/",
   login: "/api/accounts/login/",
   logout: "/api/accounts/logout/",
- // profile: "/api/accounts/profile/",
+  profile: "/api/accounts/profile/",
   documents: "/api/documents/upload/",
 };
 
