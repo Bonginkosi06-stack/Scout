@@ -12,7 +12,6 @@ from django.utils import timezone
 import uuid
 
 from django.db import IntegrityError
-from django.utils import timezone
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -117,7 +116,7 @@ def confirm_application(request):
             is_verified=True,
             closing_date__gte=timezone.now(),
         )
-    except opportunity_id.DoesNotExist:
+    except Opportunity.DoesNotExist:
         return Response(
             {"error": "Opportunity not found or unavailable."},
             status=status.HTTP_404_NOT_FOUND
